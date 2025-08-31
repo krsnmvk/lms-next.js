@@ -24,6 +24,8 @@ import { Input } from '@/components/ui/input';
 import { useTransition } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { Send } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.email(),
@@ -31,14 +33,32 @@ const formSchema = z.object({
 
 export default function SignInForm() {
   const [isSocialPending, starSocialtTransition] = useTransition();
+  const [isEmailPending, starEmailtTransition] = useTransition();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: '' },
   });
 
+  const router = useRouter();
+
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
+    starEmailtTransition(async () => {
+      await authClient.emailOtp.sendVerificationOtp({
+        email: values.email,
+        type: 'sign-in',
+        fetchOptions: {
+          onSuccess: () => {
+            toast.success('Email sent');
+            router.push(`/verify-otp?email=${values.email}`);
+          },
+
+          onError: (err) => {
+            toast.error(err.error.message);
+          },
+        },
+      });
+    });
   }
 
   async function handleSocialLogin(provider: 'github' | 'google') {
@@ -69,7 +89,7 @@ export default function SignInForm() {
         <Button
           type="button"
           onClick={() => handleSocialLogin('github')}
-          disabled={isSocialPending}
+          disabled={isSocialPending || isEmailPending}
           variant="outline"
         >
           <RiGithubFill
@@ -95,6 +115,7 @@ export default function SignInForm() {
                   <FormControl>
                     <Input
                       type="email"
+                      disabled={isEmailPending}
                       placeholder="jhon@example.com"
                       {...field}
                     />
@@ -105,11 +126,13 @@ export default function SignInForm() {
             />
             <Button
               type="submit"
+              disabled={isEmailPending || isEmailPending}
               variant="default"
               size="lg"
               className="w-full"
             >
-              Sign in
+              <Send className="size-4" />
+              <span>Continue with Email</span>
             </Button>
           </form>
         </Form>
